@@ -1,0 +1,15 @@
+# Normalize line endings: always store LF in repo
+# Ensures shell scripts and Python files run correctly on the Raspberry Pi
+* text=auto eol=lf
+
+# Force LF for files that must have Unix line endings on the Pi
+*.sh    text eol=lf
+*.py    text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.conf  text eol=lf
+*.service text eol=lf
+*.js    text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.md    text eol=lf

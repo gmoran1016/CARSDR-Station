@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <title>CARSDR Station</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────── -->
+  <header>
+    <span class="app-title">CARSDR</span>
+    <span id="state-badge" class="badge badge-scanning">SCANNING</span>
+  </header>
+
+  <!-- ── Frequency Display ──────────────────────────── -->
+  <section class="freq-section">
+    <div id="freq-display" class="freq-display">---.----- MHz</div>
+    <div class="signal-bars" id="signal-bars">
+      <div class="bar" id="bar1"></div>
+      <div class="bar" id="bar2"></div>
+      <div class="bar" id="bar3"></div>
+      <div class="bar" id="bar4"></div>
+      <div class="bar" id="bar5"></div>
+    </div>
+  </section>
+
+  <!-- ── Audio Player ───────────────────────────────── -->
+  <section class="card">
+    <h2>Audio</h2>
+    <div class="audio-controls">
+      <button id="play-btn" class="btn btn-primary btn-large" onclick="togglePlay()">
+        ▶ Play Audio
+      </button>
+      <div class="volume-row">
+        <span class="label">Vol</span>
+        <input type="range" id="volume" min="0" max="1" step="0.05" value="1"
+               oninput="setVolume(this.value)">
+      </div>
+    </div>
+    <audio id="audio-player" preload="none"></audio>
+    <p id="audio-status" class="audio-status">Tap Play to start listening</p>
+  </section>
+
+  <!-- ── Scanner Controls ───────────────────────────── -->
+  <section class="card">
+    <h2>Scanner</h2>
+    <div class="btn-row">
+      <button class="btn btn-success" onclick="scannerAction('start')">Start</button>
+      <button class="btn btn-danger"  onclick="scannerAction('stop')">Stop</button>
+      <button class="btn btn-secondary" onclick="scannerAction('resume')">Resume Scan</button>
+    </div>
+  </section>
+
+  <!-- ── Quick Tune ─────────────────────────────────── -->
+  <section class="card">
+    <h2>Quick Tune</h2>
+    <div class="tune-row">
+      <input type="number" id="tune-input" class="freq-input"
+             placeholder="161.550" step="0.005" min="118" max="174">
+      <button class="btn btn-primary" onclick="quickTune()">Tune</button>
+    </div>
+  </section>
+
+  <!-- ── Frequencies ────────────────────────────────── -->
+  <section class="card">
+    <h2>Frequencies</h2>
+    <ul id="freq-list" class="freq-list"></ul>
+    <div class="add-freq-row">
+      <input type="text"   id="new-freq-name" class="text-input" placeholder="Name (e.g. Ch 7)">
+      <input type="number" id="new-freq-mhz"  class="freq-input" placeholder="MHz" step="0.005">
+      <button class="btn btn-success" onclick="addFrequency()">Add</button>
+    </div>
+  </section>
+
+  <!-- ── Recordings ─────────────────────────────────── -->
+  <section class="card" id="recordings-section">
+    <h2>Recordings <span id="rec-indicator" class="rec-dot hidden"></span></h2>
+    <ul id="recordings-list" class="recordings-list"></ul>
+    <p id="no-recordings" class="muted">No recordings yet</p>
+  </section>
+
+  <script src="hls.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

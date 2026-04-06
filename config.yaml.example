@@ -1,0 +1,79 @@
+wifi:
+  ssid: "CARSDR"
+  password: "your_password_here"   # Change this before running install.sh
+
+sdr:
+  gain: 40            # RTL-SDR gain (0-49.6 dB). Use 0 for auto-gain.
+  ppm_error: 0        # Frequency correction in PPM (calibrate with rtl_test -p)
+  squelch: 70         # Squelch level for rtl_fm (0=open, 1-1000; higher = more selective)
+  sample_rate: 200000 # rtl_fm sample rate in Hz
+  resample_rate: 48000 # Output audio sample rate in Hz
+
+scanner:
+  dwell_time_ms: 150   # How long to listen per frequency when no signal detected
+  lock_timeout_s: 3.0  # Seconds of silence before leaving a locked frequency
+  rms_threshold: 500   # Minimum RMS amplitude to consider signal "active" (0-32767)
+
+recordings:
+  path: "/home/pi/carsdr_recordings"
+  format: "wav"
+  max_files: 100       # Oldest files deleted when this limit is exceeded
+
+# AAR (Association of American Railroads) standard railroad channels
+# Add your regional frequencies here. Common road channels vary by railroad.
+frequencies:
+  - name: "Ch 7 — Road (most common)"
+    freq_mhz: 160.425
+    enabled: true
+
+  - name: "Ch 36 — FRED/EOT Telemetry"
+    freq_mhz: 161.550
+    enabled: true
+
+  - name: "Ch 20"
+    freq_mhz: 161.100
+    enabled: true
+
+  - name: "Ch 1 — Dispatcher"
+    freq_mhz: 160.215
+    enabled: true
+
+  - name: "Ch 7A"
+    freq_mhz: 160.470
+    enabled: true
+
+  - name: "Ch 5"
+    freq_mhz: 160.335
+    enabled: true
+
+  - name: "Ch 22"
+    freq_mhz: 161.160
+    enabled: true
+
+  - name: "Ch 6"
+    freq_mhz: 160.395
+    enabled: false
+
+  - name: "Ch 8"
+    freq_mhz: 160.485
+    enabled: false
+
+  - name: "Ch 21"
+    freq_mhz: 161.130
+    enabled: false
+
+  - name: "Ch 23"
+    freq_mhz: 161.190
+    enabled: false
+
+  - name: "Ch 25"
+    freq_mhz: 161.250
+    enabled: false
+
+  - name: "Ch 28"
+    freq_mhz: 161.340
+    enabled: false
+
+  - name: "Ch 31"
+    freq_mhz: 161.430
+    enabled: false

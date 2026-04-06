@@ -1,0 +1,19 @@
+[Unit]
+Description=CARSDR Station — SDR railroad scanner
+After=network.target hostapd.service
+
+[Service]
+Type=simple
+User=__SERVICE_USER__
+WorkingDirectory=__PROJECT_DIR__
+ExecStart=/usr/bin/python3 __PROJECT_DIR__/src/main.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Ensure the HLS temp directory exists
+ExecStartPre=/bin/mkdir -p /tmp/carsdr/hls
+
+[Install]
+WantedBy=multi-user.target

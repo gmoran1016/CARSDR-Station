@@ -1,0 +1,403 @@
+/* CARSDR Station — Dark theme, optimized for phone use in a car */
+
+:root {
+  --bg:        #0d0d0d;
+  --surface:   #1a1a1a;
+  --border:    #2e2e2e;
+  --accent:    #00aaff;
+  --green:     #00cc66;
+  --red:       #ff3b3b;
+  --amber:     #ffaa00;
+  --text:      #f0f0f0;
+  --muted:     #777;
+  --radius:    12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 10;
+}
+
+.app-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+/* ── Badges ──────────────────────────────────────────── */
+
+.badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 4px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+.badge-scanning {
+  background: rgba(0, 170, 255, 0.15);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.badge-locked {
+  background: rgba(0, 204, 102, 0.15);
+  color: var(--green);
+  border: 1px solid var(--green);
+  animation: pulse-green 1.2s ease-in-out infinite;
+}
+
+.badge-manual {
+  background: rgba(255, 170, 0, 0.15);
+  color: var(--amber);
+  border: 1px solid var(--amber);
+}
+
+.badge-stopped {
+  background: rgba(120,120,120,0.15);
+  color: var(--muted);
+  border: 1px solid var(--muted);
+}
+
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* ── Frequency display ───────────────────────────────── */
+
+.freq-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 20px 20px;
+  gap: 16px;
+}
+
+.freq-display {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Signal bars ─────────────────────────────────────── */
+
+.signal-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 32px;
+}
+
+.bar {
+  width: 10px;
+  border-radius: 3px 3px 0 0;
+  background: var(--border);
+  transition: background 0.2s ease;
+}
+
+.bar:nth-child(1) { height: 8px;  }
+.bar:nth-child(2) { height: 13px; }
+.bar:nth-child(3) { height: 18px; }
+.bar:nth-child(4) { height: 24px; }
+.bar:nth-child(5) { height: 32px; }
+
+.bar.active { background: var(--green); }
+.bar.mid    { background: var(--amber); }
+
+/* ── Cards ───────────────────────────────────────────── */
+
+.card {
+  margin: 0 12px 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.card h2 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* ── Buttons ─────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: opacity 0.15s;
+}
+
+.btn:active { opacity: 0.7; }
+
+.btn-primary   { background: var(--accent); color: #000; }
+.btn-success   { background: var(--green);  color: #000; }
+.btn-danger    { background: var(--red);    color: #fff; }
+.btn-secondary { background: var(--border); color: var(--text); }
+.btn-large     { padding: 14px 28px; font-size: 1.1rem; width: 100%; }
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-row .btn { flex: 1; min-width: 80px; }
+
+/* ── Audio controls ──────────────────────────────────── */
+
+.audio-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.volume-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.volume-row .label { font-size: 0.85rem; color: var(--muted); min-width: 24px; }
+
+input[type="range"] {
+  flex: 1;
+  height: 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.audio-status {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* ── Tune row ────────────────────────────────────────── */
+
+.tune-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.freq-input {
+  flex: 1;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.freq-input:focus { outline: none; border-color: var(--accent); }
+
+/* ── Frequency list ──────────────────────────────────── */
+
+.freq-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.freq-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.freq-item:active { background: var(--border); }
+
+.freq-item.active-freq {
+  background: rgba(0, 204, 102, 0.08);
+  border: 1px solid rgba(0, 204, 102, 0.3);
+}
+
+.freq-item .toggle {
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  position: relative;
+  cursor: pointer;
+}
+
+/* Custom toggle switch */
+.toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: var(--border);
+  transition: background 0.2s;
+}
+
+.toggle input:checked + .toggle-track { background: var(--green); }
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+}
+
+.toggle input:checked ~ .toggle-thumb { left: 19px; }
+
+.freq-name {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.freq-mhz {
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.freq-tune-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.freq-tune-btn:active { background: var(--border); }
+
+.freq-del-btn {
+  background: none;
+  border: none;
+  color: var(--red);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.add-freq-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.text-input {
+  flex: 1.5;
+  min-width: 100px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.text-input:focus { outline: none; border-color: var(--accent); }
+
+/* ── Recordings list ─────────────────────────────────── */
+
+.recordings-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rec-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.rec-freq  { font-size: 0.9rem; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 80px; }
+.rec-time  { flex: 1; font-size: 0.8rem; color: var(--muted); }
+.rec-size  { font-size: 0.8rem; color: var(--muted); }
+
+.rec-play-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rec-play-btn:active { background: var(--border); }
+
+.rec-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--red);
+  margin-left: 6px;
+  animation: blink 1s step-start infinite;
+  vertical-align: middle;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.hidden { display: none !important; }
+.muted  { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 8px; }
