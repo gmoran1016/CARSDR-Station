@@ -1,2 +1,4 @@
 flask>=3.0.0
 pyyaml>=6.0
+# requests and beautifulsoup4 are NOT required —
+# rr_client.py uses only Python stdlib (urllib + html.parser)

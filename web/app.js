@@ -297,6 +297,178 @@ function playRecording(filename) {
   audioStatus.textContent = `Playing: ${filename}`;
 }
 
+// ── RadioReference Import ────────────────────────────────────────────────
+
+let _rrAllEntries = [];   // full parsed result from preview
+let _rrVisible   = [];    // currently filtered entries
+
+const RAILROAD_TAGS = new Set([
+  'railroad', 'railways', 'rail', 'transportation',
+  'railroad ops', 'railroad dispatch',
+]);
+
+function isRailroadEntry(e) {
+  const tag  = (e.tag  || '').toLowerCase();
+  const desc = (e.description || '').toLowerCase();
+  return RAILROAD_TAGS.has(tag) || tag.includes('railroad') || tag.includes('rail')
+    || desc.includes('railroad') || desc.includes('railway');
+}
+
+function openRRImport() {
+  document.getElementById('rr-modal').classList.remove('hidden');
+  document.getElementById('rr-url-input').focus();
+}
+
+function closeRRModal(event) {
+  if (!event || event.target === document.getElementById('rr-modal')) {
+    document.getElementById('rr-modal').classList.add('hidden');
+    _rrReset();
+  }
+}
+
+function _rrReset() {
+  _rrAllEntries = [];
+  _rrVisible = [];
+  document.getElementById('rr-results').classList.add('hidden');
+  document.getElementById('rr-filter-row').classList.add('hidden');
+  document.getElementById('rr-status').textContent = '';
+  document.getElementById('rr-tbody').innerHTML = '';
+  document.getElementById('rr-url-input').value = '';
+}
+
+async function rrPreview() {
+  const url = document.getElementById('rr-url-input').value.trim();
+  if (!url) return;
+  const btn = document.getElementById('rr-preview-btn');
+  const status = document.getElementById('rr-status');
+
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  status.textContent = 'Fetching RadioReference page…';
+  document.getElementById('rr-results').classList.add('hidden');
+  document.getElementById('rr-filter-row').classList.add('hidden');
+
+  try {
+    const res = await fetch(`${API}/api/import/rr/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (!res.ok) { status.textContent = `Error: ${data.error}`; return; }
+
+    _rrAllEntries = data.entries || [];
+
+    if (_rrAllEntries.length === 0) {
+      status.textContent = 'No frequency entries found on that page.';
+      return;
+    }
+
+    // Populate tag filter
+    const tagSel = document.getElementById('rr-tag-filter');
+    tagSel.innerHTML = '<option value="">All tags</option>';
+    (data.tags || []).forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      tagSel.appendChild(opt);
+    });
+
+    // If there are railroad entries, default to showing them
+    if (data.railroad_count > 0) {
+      document.getElementById('rr-rr-only').checked = true;
+    }
+
+    document.getElementById('rr-filter-row').classList.remove('hidden');
+    document.getElementById('rr-results').classList.remove('hidden');
+    status.textContent = '';
+    rrApplyFilter();
+
+  } catch (e) {
+    status.textContent = 'Network error — check Pi has internet access.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Preview';
+  }
+}
+
+function rrApplyFilter() {
+  const tagFilter  = document.getElementById('rr-tag-filter').value.toLowerCase();
+  const rrOnly     = document.getElementById('rr-rr-only').checked;
+
+  _rrVisible = _rrAllEntries.filter(e => {
+    if (tagFilter && (e.tag || '').toLowerCase() !== tagFilter) return false;
+    if (rrOnly && !isRailroadEntry(e)) return false;
+    return true;
+  });
+
+  rrRenderTable(_rrVisible);
+  document.getElementById('rr-count').textContent = `${_rrVisible.length} shown`;
+  _rrUpdateSelectedCount();
+}
+
+function rrRenderTable(entries) {
+  const tbody = document.getElementById('rr-tbody');
+  tbody.innerHTML = '';
+  entries.forEach((e, i) => {
+    const isRR = isRailroadEntry(e);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="checkbox" class="rr-row-cb" data-idx="${i}" checked></td>
+      <td>${e.freq_mhz.toFixed(4)}</td>
+      <td>${escHtml(e.name)}</td>
+      <td>${escHtml(e.mode)}</td>
+      <td><span class="rr-tag-pill ${isRR ? 'railroad' : ''}">${escHtml(e.tag)}</span></td>
+    `;
+    tr.querySelector('.rr-row-cb').addEventListener('change', _rrUpdateSelectedCount);
+    tbody.appendChild(tr);
+  });
+  document.getElementById('rr-select-all').checked = true;
+  _rrUpdateSelectedCount();
+}
+
+function rrToggleAll(checked) {
+  document.querySelectorAll('.rr-row-cb').forEach(cb => { cb.checked = checked; });
+  _rrUpdateSelectedCount();
+}
+
+function _rrUpdateSelectedCount() {
+  const n = document.querySelectorAll('.rr-row-cb:checked').length;
+  document.getElementById('rr-selected-count').textContent = `${n} selected`;
+  document.getElementById('rr-import-btn').disabled = n === 0;
+}
+
+async function rrImportSelected() {
+  const checkboxes = document.querySelectorAll('.rr-row-cb:checked');
+  const selected = Array.from(checkboxes).map(cb => _rrVisible[parseInt(cb.dataset.idx)]);
+  if (!selected.length) return;
+
+  const btn = document.getElementById('rr-import-btn');
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
+
+  try {
+    const res = await fetch(`${API}/api/import/rr/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: selected }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById('rr-status').textContent = `Error: ${data.error}`;
+      return;
+    }
+    document.getElementById('rr-status').textContent =
+      `✓ Added ${data.added} frequencies${data.skipped ? `, ${data.skipped} already existed` : ''}.`;
+    loadFrequencies();
+    setTimeout(() => closeRRModal(), 2000);
+  } catch (e) {
+    document.getElementById('rr-status').textContent = 'Import failed.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Import Selected';
+  }
+}
+
 // ── Utility ─────────────────────────────────────────────────────────────
 
 function escHtml(str) {

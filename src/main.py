@@ -11,20 +11,15 @@ import os
 import sys
 import signal
 import logging
-import threading
 import yaml
 
-# Allow imports from src/ regardless of working directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from scanner import Scanner
 from audio_pipeline import AudioPipeline
 from recorder import Recorder
+from frequency_store import FrequencyStore
 from web_server import create_app
-
-# ------------------------------------------------------------------
-# Logging
-# ------------------------------------------------------------------
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,33 +28,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger('carsdr')
 
+_SRC_DIR   = os.path.dirname(os.path.abspath(__file__))
+_ROOT_DIR  = os.path.normpath(os.path.join(_SRC_DIR, '..'))
+_DATA_DIR  = os.path.join(_ROOT_DIR, 'data')
 
-# ------------------------------------------------------------------
-# Config loading
-# ------------------------------------------------------------------
 
 def load_config() -> dict:
-    config_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), '..', 'config.yaml'
-    )
-    config_path = os.path.normpath(config_path)
+    config_path = os.path.join(_ROOT_DIR, 'config.yaml')
     if not os.path.exists(config_path):
         logger.error(f"config.yaml not found at {config_path}")
+        logger.error("Copy config.yaml.example to config.yaml and edit it first.")
         sys.exit(1)
     with open(config_path) as f:
         return yaml.safe_load(f)
 
 
-# ------------------------------------------------------------------
-# Main
-# ------------------------------------------------------------------
-
 def main():
     config = load_config()
     logger.info("CARSDR Station starting...")
 
-    # Build components
-    scanner = Scanner(config)
+    # Frequency persistence — loads from data/frequencies.json, seeds from config on first run
+    store = FrequencyStore(config, _DATA_DIR)
+
+    # Build scanner with frequencies from persistent store
+    scanner = Scanner(config, initial_frequencies=store.get_all())
+
     audio_pipeline = AudioPipeline(
         audio_queue=scanner.audio_queue,
         sample_rate=config['sdr']['resample_rate'],
@@ -72,32 +65,22 @@ def main():
     )
 
     # Wire recorder to scanner events
-    # The scanner feeds audio to its queue; recorder needs a separate tap.
-    # We override scanner callbacks to also forward audio to recorder.
     scanner.on_lock(recorder.on_lock)
     scanner.on_unlock(recorder.on_unlock)
 
-    # Patch scanner's _read_audio to also forward to recorder
-    # We do this by wrapping the audio queue put with recorder write
-    _original_queue_put = scanner.audio_queue.put_nowait
-
+    # Tee audio to recorder when recording is active
+    _original_put = scanner.audio_queue.put_nowait
     def _tee_put(data):
-        _original_queue_put(data)
+        _original_put(data)
         if recorder.is_recording:
             recorder.write_audio(data)
-
     scanner.audio_queue.put_nowait = _tee_put
 
-    # Start audio pipeline
     audio_pipeline.start()
-
-    # Start scanner
     scanner.start()
 
-    # Build and run Flask app
-    app = create_app(scanner, recorder, audio_pipeline, config)
+    app = create_app(scanner, recorder, audio_pipeline, store, config)
 
-    # Graceful shutdown on Ctrl+C / SIGTERM
     def shutdown(sig, frame):
         logger.info("Shutting down...")
         scanner.stop()
@@ -107,14 +90,14 @@ def main():
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
-    logger.info("Web server starting on http://0.0.0.0:5000")
-    logger.info("Connect your phone to the 'CARSDR' Wi-Fi, then open http://10.0.0.1:5000")
+    logger.info("Web server on http://0.0.0.0:5000")
+    logger.info("Connect to 'CARSDR' Wi-Fi → open http://10.0.0.1:5000")
 
     app.run(
         host='0.0.0.0',
         port=5000,
         debug=False,
-        use_reloader=False,  # Reloader would spawn a second scanner process
+        use_reloader=False,
         threaded=True,
     )
 

@@ -44,13 +44,16 @@ def _rms(data: bytes) -> float:
 
 
 class Scanner:
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, initial_frequencies: list = None):
         self._cfg = config
         self._sdr_cfg = config['sdr']
         self._scan_cfg = config['scanner']
 
         self._frequencies = []  # list of dicts: {name, freq_mhz, enabled}
-        self._load_frequencies(config['frequencies'])
+        if initial_frequencies is not None:
+            self._load_frequencies(initial_frequencies)
+        else:
+            self._load_frequencies(config.get('frequencies', []))
 
         self._state = STATE_STOPPED
         self._current_freq: float = 0.0

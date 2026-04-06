@@ -5,6 +5,13 @@ Format: [version] — date — description
 
 ---
 
+## [0.2.0] — 2026-04-06
+
+- **Frequency persistence** — frequencies are now saved to `data/frequencies.json` on every change (add, remove, toggle, import). Changes survive reboots. On first run, the file is seeded from `config.yaml`.
+- **RadioReference import** — new "Import from RadioReference" button in the Frequencies section. Paste any county, state, or agency URL from radioreference.com; the Pi fetches the page, parses all frequency tables, and presents them with tag filtering and per-row checkboxes. No RadioReference account required. Uses stdlib only (no new pip dependencies).
+- Auto-highlights railroad entries in the import preview table (green tag pill)
+- `rr_client.py` — stdlib HTML parser for RadioReference `rrdbTable` tables, supports county (`ctid`), state (`stid`), and agency (`aid`) URL patterns, normalizes legacy `/apps/db/?ctid=` URLs
+
 ## [0.1.1] — 2026-04-06
 
 - Added README.md with hardware list, quickstart, configuration reference, UI overview, default frequency table, troubleshooting guide, and service management commands

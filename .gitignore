@@ -1,6 +1,9 @@
 # User config (contains Wi-Fi password — never commit)
 config.yaml
 
+# Persistent user data (frequencies.json lives here)
+data/
+
 # Python
 __pycache__/
 *.py[cod]

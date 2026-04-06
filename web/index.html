@@ -74,6 +74,11 @@
       <input type="number" id="new-freq-mhz"  class="freq-input" placeholder="MHz" step="0.005">
       <button class="btn btn-success" onclick="addFrequency()">Add</button>
     </div>
+    <div style="margin-top:10px">
+      <button class="btn btn-secondary" style="width:100%" onclick="openRRImport()">
+        ⬇ Import from RadioReference
+      </button>
+    </div>
   </section>
 
   <!-- ── Recordings ─────────────────────────────────── -->
@@ -82,6 +87,72 @@
     <ul id="recordings-list" class="recordings-list"></ul>
     <p id="no-recordings" class="muted">No recordings yet</p>
   </section>
+
+  <!-- ── RadioReference Import Modal ───────────────── -->
+  <div id="rr-modal" class="modal hidden" onclick="closeRRModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <span class="modal-title">Import from RadioReference</span>
+        <button class="modal-close" onclick="closeRRModal()">✕</button>
+      </div>
+
+      <p class="modal-hint">
+        Paste a RadioReference county, state, or agency URL.<br>
+        <span class="muted">e.g. radioreference.com/db/browse/ctid/1234</span>
+      </p>
+
+      <div class="tune-row">
+        <input type="url" id="rr-url-input" class="text-input"
+               placeholder="https://www.radioreference.com/db/browse/ctid/...">
+        <button class="btn btn-primary" onclick="rrPreview()" id="rr-preview-btn">Preview</button>
+      </div>
+
+      <!-- Tag filter row — shown after preview -->
+      <div id="rr-filter-row" class="rr-filter-row hidden">
+        <label class="label">Filter by tag:</label>
+        <select id="rr-tag-filter" class="rr-select" onchange="rrApplyFilter()">
+          <option value="">All tags</option>
+        </select>
+        <label class="label rr-check-label">
+          <input type="checkbox" id="rr-rr-only" onchange="rrApplyFilter()">
+          Railroad only
+        </label>
+        <span id="rr-count" class="muted"></span>
+      </div>
+
+      <!-- Results table -->
+      <div id="rr-results" class="rr-results hidden">
+        <div class="rr-select-all-row">
+          <label>
+            <input type="checkbox" id="rr-select-all" onchange="rrToggleAll(this.checked)">
+            Select all visible
+          </label>
+        </div>
+        <div id="rr-table-wrap" class="rr-table-wrap">
+          <table class="rr-table" id="rr-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Freq (MHz)</th>
+                <th>Name</th>
+                <th>Mode</th>
+                <th>Tag</th>
+              </tr>
+            </thead>
+            <tbody id="rr-tbody"></tbody>
+          </table>
+        </div>
+        <div class="modal-footer">
+          <span id="rr-selected-count" class="muted"></span>
+          <button class="btn btn-success" onclick="rrImportSelected()" id="rr-import-btn">
+            Import Selected
+          </button>
+        </div>
+      </div>
+
+      <p id="rr-status" class="rr-status"></p>
+    </div>
+  </div>
 
   <script src="hls.min.js"></script>
   <script src="app.js"></script>
