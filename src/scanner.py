@@ -237,18 +237,26 @@ class Scanner:
     def _read_audio(self, proc: subprocess.Popen):
         """Thread: reads raw PCM from rtl_fm stdout and puts it on the audio queue."""
         chunk_size = 4096
+        chunks = 0
+        logger.info(f"_read_audio started for pid={proc.pid}")
         while proc.poll() is None and not self._stop_event.is_set():
             try:
                 data = proc.stdout.read(chunk_size)
-            except Exception:
+            except Exception as e:
+                logger.error(f"_read_audio read error: {e}")
                 break
             if not data:
+                logger.warning("_read_audio got empty read (EOF)")
                 break
             self._signal_level = _rms(data)
+            chunks += 1
+            if chunks <= 5:
+                logger.info(f"_read_audio chunk {chunks}: {len(data)}b RMS={self._signal_level:.1f}")
             try:
                 self._audio_queue.put_nowait(data)
             except queue.Full:
                 pass  # Drop oldest by discarding; pipeline is too slow
+        logger.info(f"_read_audio exiting after {chunks} chunks, pid={proc.pid} poll={proc.poll()}")
 
     def _hop_to_next(self):
         """Switch to the next enabled frequency."""
