@@ -119,8 +119,8 @@ sed "s|__PROJECT_DIR__|$PROJECT_DIR|g; s|__SERVICE_USER__|$SERVICE_USER|g" \
     "$PROJECT_DIR/setup/carsdr.service" \
     > /etc/systemd/system/carsdr.service
 systemctl daemon-reload
-systemctl enable hostapd dnsmasq avahi-daemon carsdr
 systemctl unmask hostapd
+systemctl enable hostapd dnsmasq avahi-daemon carsdr
 
 # ── Done ───────────────────────────────────────────────────────────────
 echo "[9/9] Setup complete!"
