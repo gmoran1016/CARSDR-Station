@@ -13,7 +13,10 @@
   <!-- ── Header ─────────────────────────────────────── -->
   <header>
     <span class="app-title">CARSDR</span>
-    <span id="state-badge" class="badge badge-scanning">SCANNING</span>
+    <div class="header-badges">
+      <span id="wifi-badge" class="badge badge-wifi-ap" onclick="openWifiModal()" title="Tap to switch Wi-Fi mode">HOTSPOT</span>
+      <span id="state-badge" class="badge badge-scanning">SCANNING</span>
+    </div>
   </header>
 
   <!-- ── Frequency Display ──────────────────────────── -->
@@ -77,6 +80,20 @@
     <div style="margin-top:10px">
       <button class="btn btn-secondary" style="width:100%" onclick="openRRImport()">
         ⬇ Import from RadioReference
+      </button>
+    </div>
+  </section>
+
+  <!-- ── Wi-Fi Mode ────────────────────────────────── -->
+  <section class="card" id="wifi-card">
+    <h2>Network</h2>
+    <div class="wifi-status-row">
+      <div>
+        <div id="wifi-mode-label" class="wifi-mode-label">Hotspot — CARSDR</div>
+        <div id="wifi-ip-label" class="wifi-ip-label">10.0.0.1</div>
+      </div>
+      <button id="wifi-switch-btn" class="btn btn-secondary" onclick="openWifiModal()">
+        Switch Mode
       </button>
     </div>
   </section>
@@ -170,6 +187,106 @@
       </div>
 
       <p id="rr-status" class="rr-status"></p>
+    </div>
+  </div>
+
+  <!-- ── Wi-Fi Switch Modal ────────────────────────── -->
+  <div id="wifi-modal" class="modal hidden" onclick="closeWifiModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <span class="modal-title">Switch Wi-Fi Mode</span>
+        <button class="modal-close" onclick="closeWifiModal()">✕</button>
+      </div>
+
+      <!-- AP → Client panel -->
+      <div id="wifi-to-client-panel">
+        <div class="wifi-modal-section">
+          <div class="wifi-option-btn active-option">
+            <span class="wifi-option-icon">📡</span>
+            <div>
+              <div class="wifi-option-title">Hotspot (current)</div>
+              <div class="wifi-option-desc">Broadcasting CARSDR — phone connects directly</div>
+            </div>
+          </div>
+          <div class="wifi-option-arrow">↓ Switch to</div>
+          <div class="wifi-option-btn">
+            <span class="wifi-option-icon">🌐</span>
+            <div>
+              <div class="wifi-option-title">Client Mode</div>
+              <div class="wifi-option-desc">Pi connects to your home Wi-Fi or phone hotspot for internet access</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wifi-warn-banner">
+          <strong>Your phone will disconnect from CARSDR.</strong><br>
+          After switching, connect your phone to the same network and open<br>
+          <code>http://carsdr.local:5000</code>
+        </div>
+
+        <div class="modal-form">
+          <div class="wifi-scan-row">
+            <select id="wifi-ssid-select" class="rr-select" onchange="onSsidSelect(this.value)">
+              <option value="">— Select a network —</option>
+            </select>
+            <button class="btn btn-secondary" onclick="scanNetworks()" id="wifi-scan-btn">Scan</button>
+          </div>
+          <div class="wifi-or-row"><span>or enter manually</span></div>
+          <input type="text" id="wifi-ssid-input" class="text-input" placeholder="Network name (SSID)" autocomplete="off" spellcheck="false">
+          <input type="password" id="wifi-pass-input" class="text-input" placeholder="Password (leave blank for open networks)" autocomplete="off">
+        </div>
+
+        <div class="modal-footer">
+          <span id="wifi-client-status" class="rr-status" style="text-align:left;padding:0"></span>
+          <button class="btn btn-primary" onclick="doSwitchToClient()" id="wifi-connect-btn">Connect</button>
+        </div>
+      </div>
+
+      <!-- Client → AP panel -->
+      <div id="wifi-to-ap-panel" class="hidden">
+        <div class="wifi-modal-section">
+          <div class="wifi-option-btn active-option">
+            <span class="wifi-option-icon">🌐</span>
+            <div>
+              <div class="wifi-option-title">Client Mode (current)</div>
+              <div id="wifi-client-info" class="wifi-option-desc">Connected</div>
+            </div>
+          </div>
+          <div class="wifi-option-arrow">↓ Switch to</div>
+          <div class="wifi-option-btn">
+            <span class="wifi-option-icon">📡</span>
+            <div>
+              <div class="wifi-option-title">Hotspot</div>
+              <div class="wifi-option-desc">Pi broadcasts CARSDR Wi-Fi — no internet access</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wifi-warn-banner">
+          Pi will stop being a Wi-Fi client. After switching, connect your phone to <strong>CARSDR</strong> Wi-Fi and open <code>http://10.0.0.1:5000</code>
+        </div>
+
+        <div class="modal-footer" style="justify-content:flex-end">
+          <button class="btn btn-primary" onclick="doSwitchToAp()">Switch to Hotspot</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Reconnect Screen (full-page, shown after AP→Client switch) ── -->
+  <div id="reconnect-screen" class="reconnect-screen hidden">
+    <div class="reconnect-box">
+      <div class="reconnect-icon">📶</div>
+      <h2>Wi-Fi mode switching…</h2>
+      <p>The Pi is connecting to your network. This takes about 15 seconds.</p>
+      <ol class="reconnect-steps">
+        <li>Connect your phone to <strong id="reconnect-ssid">your Wi-Fi network</strong></li>
+        <li>Open: <a id="reconnect-link" href="http://carsdr.local:5000">http://carsdr.local:5000</a></li>
+      </ol>
+      <p class="muted" style="margin-top:16px">
+        If <code>carsdr.local</code> doesn't work, check your router's device list for the Pi's IP address.
+      </p>
     </div>
   </div>
 

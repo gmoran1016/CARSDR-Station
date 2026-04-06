@@ -25,7 +25,7 @@ echo "  CARSDR Station v$VERSION — Pi Setup"
 echo "========================================"
 
 # ── System packages ────────────────────────────────────────────────────
-echo "[1/8] Installing system packages..."
+echo "[1/9] Installing system packages..."
 apt-get update -qq
 apt-get install -y \
     rtl-sdr \
@@ -33,15 +33,17 @@ apt-get install -y \
     python3-pip \
     hostapd \
     dnsmasq \
+    avahi-daemon \
+    wpasupplicant \
     curl
 
 # ── Python dependencies ────────────────────────────────────────────────
-echo "[2/8] Installing Python packages..."
+echo "[2/9] Installing Python packages..."
 pip3 install --break-system-packages flask pyyaml 2>/dev/null \
   || pip3 install flask pyyaml
 
 # ── RTL-SDR kernel module blacklist ────────────────────────────────────
-echo "[3/8] Blacklisting RTL-SDR kernel modules..."
+echo "[3/9] Blacklisting RTL-SDR kernel modules..."
 cat > /etc/modprobe.d/blacklist-rtl.conf << 'EOF'
 # Prevent the OS from claiming the RTL-SDR dongle
 blacklist dvb_usb_rtl28xxu
@@ -51,65 +53,88 @@ EOF
 modprobe -r dvb_usb_rtl28xxu rtl2832 rtl2830 2>/dev/null || true
 
 # ── HLS.js (bundled locally — no CDN needed offline) ──────────────────
-echo "[4/8] Downloading HLS.js..."
+echo "[4/9] Downloading HLS.js..."
 HLS_JS_URL="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"
 curl -sL "$HLS_JS_URL" -o "$PROJECT_DIR/web/hls.min.js" \
   || echo "WARNING: Could not download hls.min.js — run with internet access, or copy manually"
 
-# ── Static IP for wlan0 ────────────────────────────────────────────────
-echo "[5/8] Configuring static IP for wlan0..."
-# Tell dhcpcd to ignore wlan0 (hostapd manages it)
-if ! grep -q "interface wlan0" /etc/dhcpcd.conf; then
-    cat >> /etc/dhcpcd.conf << 'EOF'
+# ── Static IP for wlan0 (sentinel-delimited for wifi_switch.sh) ────────
+echo "[5/9] Configuring static IP for wlan0..."
+if ! grep -q "CARSDR-BEGIN" /etc/dhcpcd.conf 2>/dev/null && \
+   ! grep -q "nohook wpa_supplicant" /etc/dhcpcd.conf 2>/dev/null; then
+    cat >> /etc/dhcpcd.conf << 'DHCPCD_EOF'
 
-# CARSDR: static IP for Wi-Fi hotspot interface
+# CARSDR-BEGIN
 interface wlan0
     static ip_address=10.0.0.1/24
     nohook wpa_supplicant
-EOF
+# CARSDR-END
+DHCPCD_EOF
 fi
 
-# ── hostapd config ─────────────────────────────────────────────────────
-echo "[6/8] Installing hostapd config..."
+# ── Hostname + mDNS (for carsdr.local discovery in client mode) ────────
+echo "[6/9] Setting hostname and enabling mDNS..."
+CURRENT_HOSTNAME=$(hostname)
+if [ "$CURRENT_HOSTNAME" != "carsdr" ]; then
+    echo "carsdr" > /etc/hostname
+    sed -i "s/127\.0\.1\.1.*/127.0.1.1\tcarsdr/" /etc/hosts
+    hostname carsdr
+    echo "  Hostname set to: carsdr (resolves as carsdr.local)"
+else
+    echo "  Hostname already set to carsdr"
+fi
+systemctl enable avahi-daemon
+systemctl start avahi-daemon 2>/dev/null || true
 
-# Read SSID/password from project config.yaml
+# ── Wi-Fi switch script + sudoers ─────────────────────────────────────
+echo "[7/9] Configuring Wi-Fi switch permissions..."
+chmod +x "$PROJECT_DIR/setup/wifi_switch.sh"
+echo "$SERVICE_USER ALL=(root) NOPASSWD: $PROJECT_DIR/setup/wifi_switch.sh" \
+    > /etc/sudoers.d/carsdr-wifi
+chmod 440 /etc/sudoers.d/carsdr-wifi
+
+# State directory for wifi_manager
+mkdir -p /etc/carsdr
+echo "ap" > /etc/carsdr/wifi_mode
+chown "$SERVICE_USER:$SERVICE_USER" /etc/carsdr/wifi_mode
+
+# ── hostapd config ─────────────────────────────────────────────────────
+echo "[8/9] Installing hostapd + dnsmasq config..."
+
 SSID=$(python3 -c "import yaml; c=yaml.safe_load(open('$PROJECT_DIR/config.yaml')); print(c['wifi']['ssid'])")
 PASS=$(python3 -c "import yaml; c=yaml.safe_load(open('$PROJECT_DIR/config.yaml')); print(c['wifi']['password'])")
 
 cp "$PROJECT_DIR/setup/hostapd.conf" /etc/hostapd/hostapd.conf
 sed -i "s/__SSID__/$SSID/" /etc/hostapd/hostapd.conf
 sed -i "s/__PASSWORD__/$PASS/" /etc/hostapd/hostapd.conf
-
-# Point hostapd to its config
 sed -i 's|#DAEMON_CONF=.*|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd
 
-# ── dnsmasq config ─────────────────────────────────────────────────────
-# Back up existing config and install ours
 [ -f /etc/dnsmasq.conf ] && mv /etc/dnsmasq.conf /etc/dnsmasq.conf.bak
 cp "$PROJECT_DIR/setup/dnsmasq.conf" /etc/dnsmasq.conf
 
-# ── Recordings directory ───────────────────────────────────────────────
 mkdir -p "$RECORDINGS_DIR"
 chown "$SERVICE_USER:$SERVICE_USER" "$RECORDINGS_DIR"
 
-# ── systemd service ────────────────────────────────────────────────────
-echo "[7/8] Installing systemd service..."
 sed "s|__PROJECT_DIR__|$PROJECT_DIR|g; s|__SERVICE_USER__|$SERVICE_USER|g" \
     "$PROJECT_DIR/setup/carsdr.service" \
     > /etc/systemd/system/carsdr.service
 systemctl daemon-reload
-systemctl enable hostapd dnsmasq carsdr
+systemctl enable hostapd dnsmasq avahi-daemon carsdr
 systemctl unmask hostapd
 
 # ── Done ───────────────────────────────────────────────────────────────
-echo "[8/8] Setup complete!"
+echo "[9/9] Setup complete!"
 echo ""
 echo "  Reboot to activate all changes:"
 echo "    sudo reboot"
 echo ""
 echo "  After reboot:"
-echo "  1. Connect iPhone to Wi-Fi: '$(echo $SSID)'"
+echo "  1. Connect iPhone to Wi-Fi: '$SSID'"
 echo "  2. Open Safari:  http://10.0.0.1:5000"
+echo ""
+echo "  Wi-Fi mode switching:"
+echo "    Hotspot → Client: tap the HOTSPOT badge in the web UI"
+echo "    When in client mode, find the Pi at: http://carsdr.local:5000"
 echo ""
 echo "  To check service status:"
 echo "    sudo systemctl status carsdr"

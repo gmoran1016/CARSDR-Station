@@ -20,7 +20,7 @@ _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _WEB_DIR = os.path.join(_SRC_DIR, '..', 'web')
 
 
-def create_app(scanner, recorder, audio_pipeline, store, config: dict):
+def create_app(scanner, recorder, audio_pipeline, store, wifi, config: dict):
     app = Flask(__name__, static_folder=None)
     app.config['JSON_SORT_KEYS'] = False
 
@@ -76,6 +76,8 @@ def create_app(scanner, recorder, audio_pipeline, store, config: dict):
             'signal_level':   round(scanner.signal_level, 1),
             'is_recording':   recorder.is_recording,
             'recording_file': recorder.current_filename,
+            'wifi_mode':      wifi.get_mode(),
+            'wifi_switching': wifi.is_switching,
         })
 
     # ------------------------------------------------------------------
@@ -157,13 +159,52 @@ def create_app(scanner, recorder, audio_pipeline, store, config: dict):
         return jsonify({'ok': True, 'enabled': new_state})
 
     # ------------------------------------------------------------------
-    # API: system status
+    # API: system status + Wi-Fi control
     # ------------------------------------------------------------------
 
     @app.route('/api/system/connectivity')
     def api_connectivity():
         online = check_internet()
         return jsonify({'online': online})
+
+    @app.route('/api/wifi/status')
+    def api_wifi_status():
+        return jsonify(wifi.get_status())
+
+    @app.route('/api/wifi/networks')
+    def api_wifi_networks():
+        try:
+            ssids = wifi.scan_networks()
+            return jsonify({'ssids': ssids})
+        except Exception as e:
+            logger.warning(f"Network scan failed: {e}")
+            return jsonify({'ssids': [], 'error': str(e)})
+
+    @app.route('/api/wifi/switch', methods=['POST'])
+    def api_wifi_switch():
+        if wifi.is_switching:
+            return jsonify({'error': 'switch_already_in_progress'}), 409
+
+        data = request.get_json(force=True)
+        mode = data.get('mode', '').strip()
+
+        if mode == 'ap':
+            wifi.switch_to_ap()
+            return jsonify({'ok': True, 'switching': True}), 202
+
+        elif mode == 'client':
+            ssid     = data.get('ssid', '').strip()
+            password = data.get('password', '').strip()
+            if not ssid:
+                return jsonify({'error': 'ssid required for client mode'}), 400
+            try:
+                wifi.switch_to_client(ssid, password)
+            except ValueError as e:
+                return jsonify({'error': str(e)}), 400
+            return jsonify({'ok': True, 'switching': True}), 202
+
+        else:
+            return jsonify({'error': 'mode must be "ap" or "client"'}), 400
 
     # ------------------------------------------------------------------
     # API: RadioReference import

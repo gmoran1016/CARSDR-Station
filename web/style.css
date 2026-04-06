@@ -402,6 +402,215 @@ input[type="range"] {
 .hidden { display: none !important; }
 .muted  { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 8px; }
 
+/* ── Header badges row ───────────────────────────────── */
+
+.header-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Wi-Fi badges ────────────────────────────────────── */
+
+.badge-wifi-ap {
+  background: rgba(0, 204, 102, 0.12);
+  color: var(--green);
+  border: 1px solid var(--green);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.badge-wifi-client {
+  background: rgba(0, 170, 255, 0.12);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.badge-wifi-switching {
+  background: rgba(255, 170, 0, 0.12);
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  animation: pulse-green 1s ease-in-out infinite;
+}
+
+/* ── Wi-Fi card ──────────────────────────────────────── */
+
+.wifi-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wifi-mode-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wifi-ip-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+/* ── Wi-Fi switch modal content ──────────────────────── */
+
+.wifi-modal-section {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wifi-option-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.wifi-option-btn.active-option {
+  border-color: var(--accent);
+  background: rgba(0, 170, 255, 0.06);
+}
+
+.wifi-option-icon { font-size: 1.4rem; flex-shrink: 0; }
+
+.wifi-option-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wifi-option-desc {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.wifi-option-arrow {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 2px 0;
+}
+
+.wifi-warn-banner {
+  margin: 0 16px 8px;
+  padding: 10px 14px;
+  background: rgba(255, 170, 0, 0.08);
+  border: 1px solid rgba(255, 170, 0, 0.35);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.wifi-warn-banner code {
+  background: var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
+.modal-form {
+  padding: 4px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wifi-scan-row {
+  display: flex;
+  gap: 8px;
+}
+
+.wifi-scan-row .rr-select { flex: 1; }
+
+.wifi-or-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.wifi-or-row::before,
+.wifi-or-row::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Reconnect full-screen overlay ───────────────────── */
+
+.reconnect-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.reconnect-box {
+  max-width: 380px;
+  text-align: center;
+}
+
+.reconnect-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  animation: pulse-green 1.5s ease-in-out infinite;
+}
+
+.reconnect-box h2 {
+  font-size: 1.3rem;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.reconnect-box p {
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.reconnect-steps {
+  text-align: left;
+  padding-left: 20px;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.8;
+  margin-bottom: 8px;
+}
+
+.reconnect-steps a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.reconnect-steps code {
+  background: var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
 /* ── RadioReference import modal ─────────────────────── */
 
 .modal {

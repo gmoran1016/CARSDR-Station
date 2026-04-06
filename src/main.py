@@ -19,6 +19,7 @@ from scanner import Scanner
 from audio_pipeline import AudioPipeline
 from recorder import Recorder
 from frequency_store import FrequencyStore
+from wifi_manager import WifiManager
 from web_server import create_app
 
 logging.basicConfig(
@@ -50,6 +51,8 @@ def main():
     # Frequency persistence — loads from data/frequencies.json, seeds from config on first run
     store = FrequencyStore(config, _DATA_DIR)
 
+    wifi = WifiManager()
+
     # Build scanner with frequencies from persistent store
     scanner = Scanner(config, initial_frequencies=store.get_all())
 
@@ -79,7 +82,7 @@ def main():
     audio_pipeline.start()
     scanner.start()
 
-    app = create_app(scanner, recorder, audio_pipeline, store, config)
+    app = create_app(scanner, recorder, audio_pipeline, store, wifi, config)
 
     def shutdown(sig, frame):
         logger.info("Shutting down...")

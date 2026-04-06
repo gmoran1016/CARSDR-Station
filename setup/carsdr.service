@@ -1,6 +1,6 @@
 [Unit]
 Description=CARSDR Station — SDR railroad scanner
-After=network.target hostapd.service
+After=network.target hostapd.service avahi-daemon.service
 
 [Service]
 Type=simple

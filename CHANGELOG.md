@@ -5,6 +5,18 @@ Format: [version] — date — description
 
 ---
 
+## [0.3.0] — 2026-04-06
+
+- **Wi-Fi mode switching** — tap the HOTSPOT/CLIENT badge in the header (or the Switch Mode button in the Network card) to toggle between hotspot and client mode without touching the Pi
+- `setup/wifi_switch.sh` — root shell script with dual-backend support (NetworkManager/nmcli on Bookworm; classic hostapd+wpa_supplicant on Bullseye). Handles error recovery: automatically restores hostapd if client connection fails
+- `src/wifi_manager.py` — Python wrapper with background-thread switching (returns 202 immediately; phone sees reconnect screen before connection drops)
+- AP→Client: full-screen reconnect overlay shown immediately after switch — tells user to join the new network and open `http://carsdr.local:5000`
+- Client→AP: reconnect overlay tells user to rejoin CARSDR and open `http://10.0.0.1:5000`
+- Network scan via `nmcli` / `iwlist` — dropdown populated with nearby SSIDs and signal strength when in client mode
+- `setup/install.sh` — adds `avahi-daemon` (mDNS for `carsdr.local`), `wpasupplicant`, sets Pi hostname to `carsdr`, sudoers rule for wifi_switch.sh, state directory `/etc/carsdr/`
+- `setup/carsdr.service` — starts after `avahi-daemon.service`
+- dhcpcd.conf uses CARSDR-BEGIN/END sentinel markers so wifi_switch.sh can safely add/remove the static IP block
+
 ## [0.2.1] — 2026-04-06
 
 - RadioReference import now detects when the Pi has no internet access and shows an inline offline help banner with two workaround options (import at home, or temporarily connect Pi to phone's Personal Hotspot)

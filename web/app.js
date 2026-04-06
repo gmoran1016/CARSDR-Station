@@ -145,6 +145,19 @@ function updateDisplay(data) {
     }
   });
 
+  // Wi-Fi mode badge
+  if (data.wifi_mode !== undefined) {
+    updateWifiBadge(data.wifi_mode, data.wifi_switching);
+    const ipEl = document.getElementById('wifi-ip-label');
+    if (data.wifi_mode === 'ap') {
+      document.getElementById('wifi-mode-label').textContent = 'Hotspot — CARSDR';
+      ipEl.textContent = '10.0.0.1';
+    } else {
+      document.getElementById('wifi-mode-label').textContent = 'Client mode';
+      ipEl.textContent = '';
+    }
+  }
+
   // Recording indicator
   if (data.is_recording) {
     recIndicator.classList.remove('hidden');
@@ -295,6 +308,172 @@ function playRecording(filename) {
   audioPlayer.src = `${API}/api/recordings/${encodeURIComponent(filename)}`;
   audioPlayer.play().catch(() => {});
   audioStatus.textContent = `Playing: ${filename}`;
+}
+
+// ── Wi-Fi Mode Switching ─────────────────────────────────────────────────
+
+let _wifiMode = 'ap';      // tracks last known mode
+let _wifiSwitchSsid = '';  // SSID being switched to (for reconnect screen)
+
+function updateWifiBadge(mode, switching) {
+  const badge = document.getElementById('wifi-badge');
+  const label = document.getElementById('wifi-mode-label');
+  const ipEl  = document.getElementById('wifi-ip-label');
+
+  if (switching) {
+    badge.className = 'badge badge-wifi-switching';
+    badge.textContent = 'SWITCHING…';
+    return;
+  }
+  if (mode === 'client') {
+    badge.className = 'badge badge-wifi-client';
+    badge.textContent = 'CLIENT';
+    label.textContent = 'Client mode';
+  } else {
+    badge.className = 'badge badge-wifi-ap';
+    badge.textContent = 'HOTSPOT';
+    label.textContent = 'Hotspot — CARSDR';
+    ipEl.textContent = '10.0.0.1';
+  }
+  _wifiMode = mode;
+}
+
+async function openWifiModal() {
+  // Fetch current status to decide which panel to show
+  try {
+    const res = await fetch(`${API}/api/wifi/status`);
+    const data = await res.json();
+    _wifiMode = data.mode || 'ap';
+
+    const toClient = document.getElementById('wifi-to-client-panel');
+    const toAp     = document.getElementById('wifi-to-ap-panel');
+    const clientInfo = document.getElementById('wifi-client-info');
+
+    if (_wifiMode === 'client') {
+      toClient.classList.add('hidden');
+      toAp.classList.remove('hidden');
+      if (data.last_result) {
+        const r = data.last_result;
+        clientInfo.textContent =
+          `${r.ssid || 'Unknown network'}${r.ip ? ' — ' + r.ip : ''}`;
+      }
+    } else {
+      toClient.classList.remove('hidden');
+      toAp.classList.add('hidden');
+    }
+  } catch (_) { /* show default panel */ }
+
+  document.getElementById('wifi-modal').classList.remove('hidden');
+  document.getElementById('wifi-client-status').textContent = '';
+}
+
+function closeWifiModal(event) {
+  if (!event || event.target === document.getElementById('wifi-modal')) {
+    document.getElementById('wifi-modal').classList.add('hidden');
+    document.getElementById('wifi-client-status').textContent = '';
+    document.getElementById('wifi-ssid-input').value = '';
+    document.getElementById('wifi-pass-input').value = '';
+  }
+}
+
+async function scanNetworks() {
+  const btn = document.getElementById('wifi-scan-btn');
+  const sel = document.getElementById('wifi-ssid-select');
+  btn.disabled = true;
+  btn.textContent = 'Scanning…';
+  sel.innerHTML = '<option value="">Scanning…</option>';
+
+  try {
+    const res  = await fetch(`${API}/api/wifi/networks`);
+    const data = await res.json();
+    const nets = data.ssids || [];
+    sel.innerHTML = '<option value="">— Select a network —</option>';
+    nets.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n.ssid;
+      const bars = n.signal > 70 ? '▂▄▆█' : n.signal > 40 ? '▂▄▆_' : '▂▄__';
+      opt.textContent = `${n.ssid}  ${bars}${n.security && n.security !== 'Open' ? ' 🔒' : ''}`;
+      sel.appendChild(opt);
+    });
+    if (nets.length === 0) {
+      sel.innerHTML = '<option value="">No networks found</option>';
+    }
+  } catch (_) {
+    sel.innerHTML = '<option value="">Scan failed — enter SSID manually</option>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Scan';
+  }
+}
+
+function onSsidSelect(val) {
+  if (val) document.getElementById('wifi-ssid-input').value = val;
+}
+
+async function doSwitchToClient() {
+  const ssid = document.getElementById('wifi-ssid-input').value.trim();
+  const pass  = document.getElementById('wifi-pass-input').value;
+  const status = document.getElementById('wifi-client-status');
+
+  if (!ssid) { status.textContent = 'Enter a network name.'; return; }
+
+  const btn = document.getElementById('wifi-connect-btn');
+  btn.disabled = true;
+  status.textContent = 'Sending switch command…';
+
+  // Store SSID for the reconnect screen before connection drops
+  _wifiSwitchSsid = ssid;
+
+  try {
+    await fetch(`${API}/api/wifi/switch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'client', ssid, password: pass }),
+    });
+  } catch (_) {
+    // Connection dropped immediately — that's expected for AP→Client
+  }
+
+  // Show full-screen reconnect instructions regardless of response
+  _showReconnectScreen(ssid);
+}
+
+async function doSwitchToAp() {
+  // Show reconnect screen immediately — connection may drop
+  _showReconnectScreen(null);
+
+  try {
+    await fetch(`${API}/api/wifi/switch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'ap' }),
+    });
+  } catch (_) { /* expected — Pi switches back to hotspot */ }
+}
+
+function _showReconnectScreen(targetSsid) {
+  document.getElementById('wifi-modal').classList.add('hidden');
+
+  const screen = document.getElementById('reconnect-screen');
+  const ssidEl = document.getElementById('reconnect-ssid');
+  const linkEl = document.getElementById('reconnect-link');
+
+  if (targetSsid) {
+    // AP → Client: tell user to join the new network
+    ssidEl.textContent = targetSsid;
+    linkEl.href = 'http://carsdr.local:5000';
+    linkEl.textContent = 'http://carsdr.local:5000';
+  } else {
+    // Client → AP: tell user to join CARSDR hotspot
+    ssidEl.textContent = 'CARSDR';
+    linkEl.href = 'http://10.0.0.1:5000';
+    linkEl.textContent = 'http://10.0.0.1:5000';
+  }
+
+  screen.classList.remove('hidden');
+
+  // Stop the normal status poll while disconnected
+  clearInterval(pollInterval);
 }
 
 // ── RadioReference Import ────────────────────────────────────────────────
