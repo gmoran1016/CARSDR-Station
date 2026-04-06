@@ -232,7 +232,6 @@ class Scanner:
                 proc.wait(timeout=0)
             except Exception:
                 pass
-        time.sleep(0.3)  # Allow libusb to fully release the device
 
     def _read_audio(self, proc: subprocess.Popen):
         """Thread: reads raw PCM from rtl_fm stdout and puts it on the audio queue."""
@@ -297,7 +296,7 @@ class Scanner:
         # Start on first enabled frequency
         self._start_rtl(enabled[0]['freq_mhz'])
         last_signal_time = time.monotonic()
-        time.sleep(0.1)  # Brief settle time after first tune
+        time.sleep(0.8)  # Wait for rtl_fm to initialize and start producing output
 
         while not self._stop_event.is_set():
             level = self._signal_level
@@ -317,7 +316,7 @@ class Scanner:
                     # No signal — dwell briefly then hop
                     time.sleep(dwell)
                     self._hop_to_next()
-                    time.sleep(0.05)  # Settle after retune
+                    time.sleep(0.8)  # Wait for new rtl_fm to initialize
 
             elif self._state == STATE_LOCKED:
                 if level >= threshold:
