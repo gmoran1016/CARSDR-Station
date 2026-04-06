@@ -235,6 +235,7 @@ class Scanner:
     def _read_audio(self, proc: subprocess.Popen):
         """Thread: reads raw PCM from rtl_fm stdout and puts it on the audio queue."""
         chunk_size = 4096
+        threshold = self._scan_cfg['rms_threshold']
         chunks = 0
         while proc.poll() is None and not self._stop_event.is_set():
             try:
@@ -244,8 +245,12 @@ class Scanner:
                 break
             if not data:
                 break
-            self._signal_level = _rms(data)
+            rms = _rms(data)
+            self._signal_level = rms
             chunks += 1
+            # Software squelch: suppress static when signal is below threshold
+            if rms < threshold:
+                data = SILENCE_CHUNK
             try:
                 self._audio_queue.put_nowait(data)
             except queue.Full:
