@@ -148,11 +148,10 @@ class Scanner:
 
     def tune(self, freq_mhz: float):
         """Manually tune to a specific frequency and pause scanning."""
-        was_running = self._state != STATE_STOPPED
-        if was_running:
-            self._kill_rtl()
+        # Set MANUAL state first so the scan loop stops hopping before we kill rtl_fm
         self._state = STATE_MANUAL
         self._current_freq = freq_mhz
+        self._kill_rtl()
         self._start_rtl(freq_mhz)
         logger.info(f"Manually tuned to {freq_mhz} MHz")
 
@@ -315,8 +314,10 @@ class Scanner:
                 else:
                     # No signal — dwell briefly then hop
                     time.sleep(dwell)
-                    self._hop_to_next()
-                    time.sleep(0.8)  # Wait for new rtl_fm to initialize
+                    # Re-check: tune() may have set MANUAL during the sleep
+                    if self._state == STATE_SCANNING:
+                        self._hop_to_next()
+                        time.sleep(0.8)  # Wait for new rtl_fm to initialize
 
             elif self._state == STATE_LOCKED:
                 if level >= threshold:
@@ -330,8 +331,9 @@ class Scanner:
                                 cb()
                             except Exception:
                                 pass
-                        self._hop_to_next()
-                        time.sleep(0.05)
+                        if self._state == STATE_SCANNING:
+                            self._hop_to_next()
+                            time.sleep(0.8)
                 time.sleep(0.1)
 
             elif self._state == STATE_MANUAL:
