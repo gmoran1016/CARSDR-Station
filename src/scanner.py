@@ -221,10 +221,18 @@ class Scanner:
         self._rtl_proc = None
         if proc and proc.poll() is None:
             try:
-                proc.terminate()
+                proc.send_signal(signal.SIGINT)  # SIGINT for clean libusb shutdown
                 proc.wait(timeout=2)
             except subprocess.TimeoutExpired:
                 proc.kill()
+                proc.wait(timeout=1)
+        elif proc:
+            # Already exited (zombie) — reap it
+            try:
+                proc.wait(timeout=0)
+            except Exception:
+                pass
+        time.sleep(0.3)  # Allow libusb to fully release the device
 
     def _read_audio(self, proc: subprocess.Popen):
         """Thread: reads raw PCM from rtl_fm stdout and puts it on the audio queue."""
