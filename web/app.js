@@ -32,6 +32,8 @@ const noRec        = document.getElementById('no-recordings');
 // ── Audio setup ─────────────────────────────────────────────────────────
 
 let _stallTimer = null;
+let _lastCurrentTime = -1;
+let _lastProgressAt  = 0;
 
 function _clearStallTimer() {
   if (_stallTimer) { clearTimeout(_stallTimer); _stallTimer = null; }
@@ -40,12 +42,34 @@ function _clearStallTimer() {
 function _reloadStream() {
   if (!audioPlaying) return;
   audioStatus.textContent = 'Reconnecting...';
+  _lastCurrentTime = -1;
+  _lastProgressAt  = Date.now();
   if (typeof Hls !== 'undefined' && Hls.isSupported()) {
     initHls();
+    audioPlayer.play().catch(() => {});
   } else {
-    // iOS Safari native HLS — reload with cache-buster
+    // iOS Safari native HLS — reload with cache-buster so it jumps to live edge
     audioPlayer.src = '/hls/stream.m3u8?t=' + Date.now();
     audioPlayer.play().catch(() => {});
+  }
+}
+
+// Called from the status poll — detects iOS HLS stalls via currentTime
+function _checkAudioProgress() {
+  if (!audioPlaying || audioPlayer.paused) return;
+  const ct = audioPlayer.currentTime;
+  const now = Date.now();
+  if (ct !== _lastCurrentTime) {
+    _lastCurrentTime = ct;
+    _lastProgressAt  = now;
+    if (audioStatus.textContent === 'Reconnecting...' ||
+        audioStatus.textContent === 'Buffering...') {
+      audioStatus.textContent = 'Streaming live';
+    }
+  } else if (_lastProgressAt > 0 && now - _lastProgressAt > 5000) {
+    // currentTime frozen for 5s while supposedly playing — stalled
+    _lastProgressAt = now; // reset so we don't spam reloads
+    _reloadStream();
   }
 }
 
@@ -133,6 +157,7 @@ async function pollStatus() {
     const data = await res.json();
     updateDisplay(data);
   } catch (_) { /* server not yet ready */ }
+  _checkAudioProgress();
 }
 
 function updateDisplay(data) {
@@ -227,6 +252,7 @@ async function quickTune() {
       body: JSON.stringify({ freq_mhz: parseFloat(val) }),
     });
     pollStatus();
+    _reloadStream();
   } catch (e) { console.error(e); }
 }
 
@@ -276,6 +302,7 @@ async function tuneToFreq(freqMhz) {
       body: JSON.stringify({ freq_mhz: freqMhz }),
     });
     pollStatus();
+    _reloadStream();
   } catch (e) { console.error(e); }
 }
 
