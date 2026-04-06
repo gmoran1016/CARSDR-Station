@@ -314,9 +314,26 @@ function isRailroadEntry(e) {
     || desc.includes('railroad') || desc.includes('railway');
 }
 
-function openRRImport() {
+async function openRRImport() {
   document.getElementById('rr-modal').classList.remove('hidden');
   document.getElementById('rr-url-input').focus();
+
+  // Check connectivity and show offline banner if needed
+  try {
+    const res = await fetch(`${API}/api/system/connectivity`);
+    const data = await res.json();
+    const banner = document.getElementById('rr-offline-banner');
+    const previewBtn = document.getElementById('rr-preview-btn');
+    if (!data.online) {
+      banner.classList.remove('hidden');
+      previewBtn.disabled = true;
+      previewBtn.title = 'Pi has no internet access';
+    } else {
+      banner.classList.add('hidden');
+      previewBtn.disabled = false;
+      previewBtn.title = '';
+    }
+  } catch (_) { /* connectivity check failed — leave UI unchanged */ }
 }
 
 function closeRRModal(event) {
@@ -331,9 +348,11 @@ function _rrReset() {
   _rrVisible = [];
   document.getElementById('rr-results').classList.add('hidden');
   document.getElementById('rr-filter-row').classList.add('hidden');
+  document.getElementById('rr-offline-banner').classList.add('hidden');
   document.getElementById('rr-status').textContent = '';
   document.getElementById('rr-tbody').innerHTML = '';
   document.getElementById('rr-url-input').value = '';
+  document.getElementById('rr-preview-btn').disabled = false;
 }
 
 async function rrPreview() {
@@ -355,7 +374,15 @@ async function rrPreview() {
       body: JSON.stringify({ url }),
     });
     const data = await res.json();
-    if (!res.ok) { status.textContent = `Error: ${data.error}`; return; }
+    if (!res.ok) {
+      if (data.offline) {
+        document.getElementById('rr-offline-banner').classList.remove('hidden');
+        status.textContent = '';
+      } else {
+        status.textContent = `Error: ${data.error}`;
+      }
+      return;
+    }
 
     _rrAllEntries = data.entries || [];
 

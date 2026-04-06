@@ -96,14 +96,33 @@
         <button class="modal-close" onclick="closeRRModal()">✕</button>
       </div>
 
+      <!-- Offline warning — shown when Pi has no internet -->
+      <div id="rr-offline-banner" class="rr-offline-banner hidden">
+        <div class="rr-offline-title">Pi is offline — no internet access</div>
+        <p>RadioReference import needs the Pi to reach the internet. Two options:</p>
+        <ol class="rr-offline-list">
+          <li>
+            <strong>Import at home</strong> — connect the Pi to your home Wi-Fi
+            (or temporarily to your phone's Personal Hotspot), do the import,
+            then take it on the road. Frequencies are saved permanently.
+          </li>
+          <li>
+            <strong>Temporary hotspot</strong> — in the car, enable your iPhone's
+            Personal Hotspot, then on the Pi run:<br>
+            <code>sudo raspi-config</code> → System → Wireless LAN → connect to your hotspot.
+            Import, then switch back.
+          </li>
+        </ol>
+      </div>
+
       <p class="modal-hint">
         Paste a RadioReference county, state, or agency URL.<br>
-        <span class="muted">e.g. radioreference.com/db/browse/ctid/1234</span>
+        <span class="muted">e.g. radioreference.com/db/aid/3299</span>
       </p>
 
       <div class="tune-row">
         <input type="url" id="rr-url-input" class="text-input"
-               placeholder="https://www.radioreference.com/db/browse/ctid/...">
+               placeholder="https://www.radioreference.com/db/aid/3299">
         <button class="btn btn-primary" onclick="rrPreview()" id="rr-preview-btn">Preview</button>
       </div>
 

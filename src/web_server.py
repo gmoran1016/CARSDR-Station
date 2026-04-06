@@ -12,7 +12,7 @@ import os
 import logging
 from flask import Flask, jsonify, request, send_from_directory, send_file, abort
 
-from rr_client import fetch_frequencies, filter_railroad, normalize_url
+from rr_client import fetch_frequencies, filter_railroad, normalize_url, check_internet, OfflineError
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +157,15 @@ def create_app(scanner, recorder, audio_pipeline, store, config: dict):
         return jsonify({'ok': True, 'enabled': new_state})
 
     # ------------------------------------------------------------------
+    # API: system status
+    # ------------------------------------------------------------------
+
+    @app.route('/api/system/connectivity')
+    def api_connectivity():
+        online = check_internet()
+        return jsonify({'online': online})
+
+    # ------------------------------------------------------------------
     # API: RadioReference import
     # ------------------------------------------------------------------
 
@@ -174,6 +183,8 @@ def create_app(scanner, recorder, audio_pipeline, store, config: dict):
 
         try:
             entries = fetch_frequencies(url)
+        except OfflineError as e:
+            return jsonify({'error': str(e), 'offline': True}), 503
         except ValueError as e:
             return jsonify({'error': str(e)}), 400
         except Exception as e:

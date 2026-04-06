@@ -5,6 +5,13 @@ Format: [version] — date — description
 
 ---
 
+## [0.2.1] — 2026-04-06
+
+- RadioReference import now detects when the Pi has no internet access and shows an inline offline help banner with two workaround options (import at home, or temporarily connect Pi to phone's Personal Hotspot)
+- Preview button is disabled when offline to prevent confusing timeout errors
+- Added `GET /api/system/connectivity` endpoint for frontend connectivity checks
+- `OfflineError` raised distinctly from other fetch errors for cleaner error handling
+
 ## [0.2.0] — 2026-04-06
 
 - **Frequency persistence** — frequencies are now saved to `data/frequencies.json` on every change (add, remove, toggle, import). Changes survive reboots. On first run, the file is seeded from `config.yaml`.

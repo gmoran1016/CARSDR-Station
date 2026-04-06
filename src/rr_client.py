@@ -16,6 +16,7 @@ Returns a list of dicts:
 
 import re
 import logging
+import socket
 import urllib.request
 import urllib.error
 from html.parser import HTMLParser
@@ -27,6 +28,24 @@ _UA = (
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
     'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
 )
+
+_CONNECTIVITY_CACHE: dict = {'online': None}   # simple cache so we don't DNS-check every request
+
+
+class OfflineError(Exception):
+    """Raised when the Pi has no internet access."""
+
+
+def check_internet(host: str = 'www.radioreference.com', timeout: float = 3.0) -> bool:
+    """Return True if the Pi can reach the internet (DNS + TCP to host:443)."""
+    try:
+        socket.setdefaulttimeout(timeout)
+        socket.getaddrinfo(host, 443)
+        _CONNECTIVITY_CACHE['online'] = True
+        return True
+    except OSError:
+        _CONNECTIVITY_CACHE['online'] = False
+        return False
 
 # RadioReference tag values that indicate railroad-related entries
 RAILROAD_TAGS = {
@@ -56,12 +75,26 @@ def fetch_frequencies(url: str) -> list:
         raise ValueError("URL must be a radioreference.com page")
 
     logger.info(f"Fetching RR page: {url}")
+
+    if not check_internet():
+        raise OfflineError(
+            "The Pi has no internet access right now. "
+            "RadioReference import requires internet. "
+            "See options below."
+        )
+
     req = urllib.request.Request(url, headers={'User-Agent': _UA})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             html = resp.read().decode('utf-8', errors='replace')
     except urllib.error.HTTPError as e:
         raise ValueError(f"RadioReference returned HTTP {e.code}: {e.reason}")
+    except urllib.error.URLError as e:
+        raise OfflineError(
+            "The Pi has no internet access right now. "
+            "RadioReference import requires internet. "
+            "See options below."
+        )
     except Exception as e:
         raise ValueError(f"Could not reach RadioReference: {e}")
 
