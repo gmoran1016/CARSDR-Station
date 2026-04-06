@@ -152,6 +152,12 @@ class Scanner:
         self._state = STATE_MANUAL
         self._current_freq = freq_mhz
         self._kill_rtl()
+        # Flush any queued silence/stale audio so the new frequency is heard immediately
+        try:
+            while True:
+                self._audio_queue.get_nowait()
+        except queue.Empty:
+            pass
         self._start_rtl(freq_mhz)
         logger.info(f"Manually tuned to {freq_mhz} MHz")
 
