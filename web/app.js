@@ -31,6 +31,24 @@ const noRec        = document.getElementById('no-recordings');
 
 // ── Audio setup ─────────────────────────────────────────────────────────
 
+let _stallTimer = null;
+
+function _clearStallTimer() {
+  if (_stallTimer) { clearTimeout(_stallTimer); _stallTimer = null; }
+}
+
+function _reloadStream() {
+  if (!audioPlaying) return;
+  audioStatus.textContent = 'Reconnecting...';
+  if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+    initHls();
+  } else {
+    // iOS Safari native HLS — reload with cache-buster
+    audioPlayer.src = '/hls/stream.m3u8?t=' + Date.now();
+    audioPlayer.play().catch(() => {});
+  }
+}
+
 function initHls() {
   const src = '/hls/stream.m3u8';
 
@@ -69,14 +87,33 @@ function togglePlay() {
     audioStatus.textContent = 'Buffering... (~4s delay)';
     initHls();
     audioPlayer.play().catch(() => {
-      // Autoplay blocked — user interaction already occurred so this shouldn't happen
       audioStatus.textContent = 'Tap Play again to start';
     });
-    audioPlayer.onplaying = () => { audioStatus.textContent = 'Streaming live'; };
-    audioPlayer.onwaiting = () => { audioStatus.textContent = 'Buffering...'; };
-    audioPlayer.onpause   = () => { audioStatus.textContent = 'Paused'; };
+    audioPlayer.onplaying = () => {
+      audioStatus.textContent = 'Streaming live';
+      _clearStallTimer();
+    };
+    audioPlayer.onwaiting = () => {
+      audioStatus.textContent = 'Buffering...';
+      _clearStallTimer();
+      // Auto-recover after 4s of stalling (e.g. after a frequency change)
+      _stallTimer = setTimeout(_reloadStream, 4000);
+    };
+    audioPlayer.onstalled = () => {
+      _clearStallTimer();
+      _stallTimer = setTimeout(_reloadStream, 4000);
+    };
+    audioPlayer.onerror = () => {
+      _clearStallTimer();
+      _stallTimer = setTimeout(_reloadStream, 2000);
+    };
+    audioPlayer.onpause = () => {
+      if (audioPlaying) audioStatus.textContent = 'Buffering...';
+      else audioStatus.textContent = 'Paused';
+    };
   } else {
     audioPlaying = false;
+    _clearStallTimer();
     audioPlayer.pause();
     playBtn.textContent = '▶ Play Audio';
     audioStatus.textContent = 'Paused';

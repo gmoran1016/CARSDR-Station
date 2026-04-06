@@ -199,7 +199,7 @@ class Scanner:
             self._rtl_proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.PIPE,  # Captured to log on failure
                 bufsize=0,
             )
             self._current_freq = freq_mhz
@@ -236,33 +236,28 @@ class Scanner:
         """Thread: reads raw PCM from rtl_fm stdout and puts it on the audio queue."""
         chunk_size = 4096
         chunks = 0
-        logger.info(f"_read_audio started for pid={proc.pid}")
         while proc.poll() is None and not self._stop_event.is_set():
             try:
                 data = proc.stdout.read(chunk_size)
             except Exception as e:
-                logger.error(f"_read_audio read error: {e}")
+                logger.error(f"rtl_fm read error: {e}")
                 break
             if not data:
-                logger.warning("_read_audio got empty read (EOF)")
                 break
             self._signal_level = _rms(data)
             chunks += 1
-            if chunks <= 5:
-                logger.info(f"_read_audio chunk {chunks}: {len(data)}b RMS={self._signal_level:.1f}")
             try:
                 self._audio_queue.put_nowait(data)
             except queue.Full:
                 pass  # Drop oldest by discarding; pipeline is too slow
-        exit_code = proc.poll()
-        stderr_out = b""
-        try:
-            stderr_out = proc.stderr.read() if proc.stderr else b""
-        except Exception:
-            pass
-        if stderr_out:
-            logger.error(f"rtl_fm stderr: {stderr_out.decode('utf-8', errors='replace').strip()}")
-        logger.info(f"_read_audio exiting after {chunks} chunks, pid={proc.pid} poll={exit_code}")
+        if chunks == 0:
+            # Process died before producing any output — log stderr for diagnosis
+            try:
+                err = proc.stderr.read() if proc.stderr else b""
+                if err:
+                    logger.error(f"rtl_fm exited with no output. stderr: {err.decode('utf-8', errors='replace').strip()}")
+            except Exception:
+                pass
 
     def _hop_to_next(self):
         """Switch to the next enabled frequency."""
