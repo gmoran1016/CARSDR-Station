@@ -3,7 +3,7 @@
 # Run once as root (or with sudo) on a fresh Raspberry Pi OS installation.
 #
 # Quick start on a fresh Pi:
-#   git clone https://github.com/Griffinmoran1016/CARSDR-Station.git /home/pi/carsdr
+#   git clone https://github.com/gmoran1016/CARSDR-Station.git /home/pi/carsdr
 #   cd /home/pi/carsdr
 #   cp config.yaml.example config.yaml
 #   nano config.yaml          # Set your Wi-Fi password and adjust frequencies
@@ -23,6 +23,15 @@ VERSION=$(cat "$PROJECT_DIR/VERSION" 2>/dev/null || echo "unknown")
 echo "========================================"
 echo "  CARSDR Station v$VERSION — Pi Setup"
 echo "========================================"
+
+# ── Detect Wi-Fi backend early ─────────────────────────────────────────
+if nmcli -t -f RUNNING general 2>/dev/null | grep -q "running"; then
+    WIFI_BACKEND="nm"
+    echo "  Wi-Fi backend: NetworkManager (Bookworm/Trixie)"
+else
+    WIFI_BACKEND="classic"
+    echo "  Wi-Fi backend: classic (hostapd + dhcpcd)"
+fi
 
 # ── System packages ────────────────────────────────────────────────────
 echo "[1/9] Installing system packages..."
@@ -58,11 +67,12 @@ HLS_JS_URL="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"
 curl -sL "$HLS_JS_URL" -o "$PROJECT_DIR/web/hls.min.js" \
   || echo "WARNING: Could not download hls.min.js — run with internet access, or copy manually"
 
-# ── Static IP for wlan0 (sentinel-delimited for wifi_switch.sh) ────────
-echo "[5/9] Configuring static IP for wlan0..."
-if ! grep -q "CARSDR-BEGIN" /etc/dhcpcd.conf 2>/dev/null && \
-   ! grep -q "nohook wpa_supplicant" /etc/dhcpcd.conf 2>/dev/null; then
-    cat >> /etc/dhcpcd.conf << 'DHCPCD_EOF'
+# ── Static IP for wlan0 (classic backend only) ────────────────────────
+if [ "$WIFI_BACKEND" = "classic" ]; then
+    echo "[5/9] Configuring static IP for wlan0 (dhcpcd)..."
+    if ! grep -q "CARSDR-BEGIN" /etc/dhcpcd.conf 2>/dev/null && \
+       ! grep -q "nohook wpa_supplicant" /etc/dhcpcd.conf 2>/dev/null; then
+        cat >> /etc/dhcpcd.conf << 'DHCPCD_EOF'
 
 # CARSDR-BEGIN
 interface wlan0
@@ -70,6 +80,9 @@ interface wlan0
     nohook wpa_supplicant
 # CARSDR-END
 DHCPCD_EOF
+    fi
+else
+    echo "[5/9] Skipping dhcpcd config (NetworkManager system)..."
 fi
 
 # ── Hostname + mDNS (for carsdr.local discovery in client mode) ────────
@@ -98,12 +111,13 @@ mkdir -p /etc/carsdr
 echo "ap" > /etc/carsdr/wifi_mode
 chown "$SERVICE_USER:$SERVICE_USER" /etc/carsdr/wifi_mode
 
-# ── hostapd config ─────────────────────────────────────────────────────
-echo "[8/9] Installing hostapd + dnsmasq config..."
+# ── AP setup ───────────────────────────────────────────────────────────
+echo "[8/9] Configuring Wi-Fi access point..."
 
 SSID=$(python3 -c "import yaml; c=yaml.safe_load(open('$PROJECT_DIR/config.yaml')); print(c['wifi']['ssid'])")
 PASS=$(python3 -c "import yaml; c=yaml.safe_load(open('$PROJECT_DIR/config.yaml')); print(c['wifi']['password'])")
 
+# Always write hostapd.conf (used by classic backend)
 cp "$PROJECT_DIR/setup/hostapd.conf" /etc/hostapd/hostapd.conf
 sed -i "s/__SSID__/$SSID/" /etc/hostapd/hostapd.conf
 sed -i "s/__PASSWORD__/$PASS/" /etc/hostapd/hostapd.conf
@@ -119,8 +133,39 @@ sed "s|__PROJECT_DIR__|$PROJECT_DIR|g; s|__SERVICE_USER__|$SERVICE_USER|g" \
     "$PROJECT_DIR/setup/carsdr.service" \
     > /etc/systemd/system/carsdr.service
 systemctl daemon-reload
-systemctl unmask hostapd
-systemctl enable hostapd dnsmasq avahi-daemon carsdr
+
+if [ "$WIFI_BACKEND" = "nm" ]; then
+    # Use NetworkManager's built-in AP mode — no standalone hostapd/dnsmasq needed
+    echo "  Creating NetworkManager hotspot profile..."
+    nmcli con delete carsdr-hotspot 2>/dev/null || true
+    nmcli con add type wifi ifname wlan0 con-name carsdr-hotspot \
+        ssid "$SSID" \
+        wifi.mode ap \
+        wifi.band bg \
+        wifi.channel 6 \
+        ipv4.method shared \
+        ipv4.addresses 10.0.0.1/24 \
+        wifi-sec.key-mgmt wpa-psk \
+        wifi-sec.psk "$PASS" \
+        connection.autoconnect yes \
+        connection.autoconnect-priority 100
+    echo "  NM hotspot profile 'carsdr-hotspot' created"
+
+    # Disable standalone hostapd/dnsmasq (NM manages AP internally)
+    systemctl unmask hostapd 2>/dev/null || true
+    systemctl disable hostapd dnsmasq 2>/dev/null || true
+    systemctl stop hostapd dnsmasq 2>/dev/null || true
+
+    systemctl enable avahi-daemon carsdr
+
+    # Activate the hotspot now
+    nmcli con up carsdr-hotspot 2>/dev/null \
+        && echo "  Hotspot '$SSID' is now active at 10.0.0.1" \
+        || echo "  WARNING: Could not bring hotspot up now — will activate on next reboot"
+else
+    systemctl unmask hostapd
+    systemctl enable hostapd dnsmasq avahi-daemon carsdr
+fi
 
 # ── Done ───────────────────────────────────────────────────────────────
 echo "[9/9] Setup complete!"

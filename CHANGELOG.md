@@ -5,6 +5,12 @@ Format: [version] — date — description
 
 ---
 
+## [0.3.1] — 2026-04-06
+
+- **Fix hotspot on Bookworm/Trixie (NetworkManager)** — `install.sh` now detects whether NetworkManager is active and creates an NM hotspot profile (`nmcli con add ... wifi.mode ap`) instead of relying on `dhcpcd.conf` (which NM ignores). Standalone `hostapd` and `dnsmasq` are disabled on NM systems; NM handles AP and DHCP internally via `ipv4.method shared`
+- `wifi_switch.sh` — `start_ap()` on NM now calls `nmcli con up carsdr-hotspot` instead of manually assigning the IP and restarting hostapd, which no longer works when NM is in control
+- `do_client()` on NM brings down the hotspot profile before connecting, rather than stopping the hostapd service
+
 ## [0.3.0] — 2026-04-06
 
 - **Wi-Fi mode switching** — tap the HOTSPOT/CLIENT badge in the header (or the Switch Mode button in the Network card) to toggle between hotspot and client mode without touching the Pi

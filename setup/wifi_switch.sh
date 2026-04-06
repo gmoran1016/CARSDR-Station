@@ -58,7 +58,7 @@ wait_for_ip() {
     echo ""
 }
 
-# Add or remove the CARSDR static-IP block in dhcpcd.conf
+# Add or remove the CARSDR static-IP block in dhcpcd.conf (classic only)
 enable_static_ip() {
     if ! grep -q "CARSDR-BEGIN" "$DHCPCD_CONF" 2>/dev/null; then
         cat >> "$DHCPCD_CONF" << 'EOF'
@@ -80,8 +80,17 @@ disable_static_ip() {
 # ── Restart AP mode (used for error recovery too) ────────────────────
 start_ap() {
     if [ "$BACKEND" = "nm" ]; then
-        nmcli dev set wlan0 managed no 2>/dev/null || true
+        # Bring down client profile if active, then activate the NM hotspot
+        nmcli con down carsdr-client 2>/dev/null || true
+        sleep 1
+        nmcli con up carsdr-hotspot 2>/dev/null || {
+            printf '{"ok":false,"error":"hotspot_profile_missing_run_install_sh"}\n'; exit 1
+        }
+        write_state "ap"
+        return
     fi
+
+    # Classic path
     enable_static_ip
     ip addr flush dev wlan0 2>/dev/null || true
     ip addr add 10.0.0.1/24 dev wlan0 2>/dev/null || true
@@ -102,15 +111,10 @@ do_status() {
 }
 
 do_ap() {
-    # Stop any client association
-    if [ "$BACKEND" = "nm" ]; then
-        nmcli con down carsdr-client 2>/dev/null || true
-        sleep 1
-    else
+    if [ "$BACKEND" = "classic" ]; then
         systemctl stop wpa_supplicant 2>/dev/null || true
         dhclient -r wlan0 2>/dev/null || true
     fi
-
     start_ap
     printf '{"ok":true,"mode":"ap","ip":"10.0.0.1"}\n'
 }
@@ -123,21 +127,15 @@ do_client() {
         printf '{"ok":false,"error":"ssid_required"}\n'; exit 1
     fi
 
-    # Stop hotspot
-    systemctl stop hostapd  2>/dev/null || true
-    systemctl stop dnsmasq  2>/dev/null || true
-
     if [ "$BACKEND" = "nm" ]; then
-        # Let NetworkManager manage wlan0
-        nmcli dev set wlan0 managed yes 2>/dev/null || true
-        disable_static_ip
-        systemctl restart NetworkManager
-        sleep 2
+        # Bring down hotspot profile
+        nmcli con down carsdr-hotspot 2>/dev/null || true
+        sleep 1
 
         # Remove stale client profile if present
         nmcli con delete carsdr-client 2>/dev/null || true
 
-        # Connect
+        # Connect to target network
         if [ -n "$password" ]; then
             nmcli dev wifi connect "$ssid" password "$password" ifname wlan0 name carsdr-client 2>&1 || {
                 start_ap
@@ -151,6 +149,8 @@ do_client() {
         fi
     else
         # Classic: wpa_supplicant + dhclient/dhcpcd
+        systemctl stop hostapd  2>/dev/null || true
+        systemctl stop dnsmasq  2>/dev/null || true
         disable_static_ip
         ip addr flush dev wlan0 2>/dev/null || true
         ip link set wlan0 up
@@ -198,7 +198,6 @@ do_scan() {
     local mode
     mode=$(read_state)
 
-    # In AP mode scanning disrupts clients; do it anyway with a warning
     local results="[]"
     if command -v nmcli &>/dev/null; then
         results=$(nmcli -t -f SSID,SIGNAL,SECURITY dev wifi list --rescan yes 2>/dev/null \
@@ -225,7 +224,6 @@ print(json.dumps(nets))
 import sys, re, json
 nets = []
 seen = set()
-cur = {}
 for line in sys.stdin:
     line = line.strip()
     m = re.search(r'ESSID:\"(.+?)\"', line)
