@@ -5,6 +5,10 @@ Format: [version] — date — description
 
 ---
 
+## [0.1.1] — 2026-04-06
+
+- Added README.md with hardware list, quickstart, configuration reference, UI overview, default frequency table, troubleshooting guide, and service management commands
+
 ## [0.1.0] — 2026-04-06
 
 Initial release.
