@@ -84,7 +84,7 @@ class AudioPipeline:
             # HLS output
             '-f', 'hls',
             '-hls_time', '1',
-            '-hls_list_size', '4',
+            '-hls_list_size', '10',
             '-hls_flags', 'delete_segments+append_list',
             '-hls_segment_filename', os.path.join(HLS_DIR, 'seg%05d.ts'),
             HLS_MANIFEST,
