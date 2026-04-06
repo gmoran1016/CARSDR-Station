@@ -200,7 +200,7 @@ class Scanner:
             self._rtl_proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 bufsize=0,
             )
             self._current_freq = freq_mhz
@@ -256,7 +256,15 @@ class Scanner:
                 self._audio_queue.put_nowait(data)
             except queue.Full:
                 pass  # Drop oldest by discarding; pipeline is too slow
-        logger.info(f"_read_audio exiting after {chunks} chunks, pid={proc.pid} poll={proc.poll()}")
+        exit_code = proc.poll()
+        stderr_out = b""
+        try:
+            stderr_out = proc.stderr.read() if proc.stderr else b""
+        except Exception:
+            pass
+        if stderr_out:
+            logger.error(f"rtl_fm stderr: {stderr_out.decode('utf-8', errors='replace').strip()}")
+        logger.info(f"_read_audio exiting after {chunks} chunks, pid={proc.pid} poll={exit_code}")
 
     def _hop_to_next(self):
         """Switch to the next enabled frequency."""
