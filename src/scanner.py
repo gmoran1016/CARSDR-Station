@@ -20,6 +20,7 @@ import math
 import logging
 import os
 import signal
+import select
 
 logger = logging.getLogger(__name__)
 
@@ -241,9 +242,18 @@ class Scanner:
     def _read_audio(self, proc: subprocess.Popen):
         """Thread: reads raw PCM from rtl_fm stdout and puts it on the audio queue."""
         chunk_size = 4096
-        threshold = self._scan_cfg['rms_threshold']
         chunks = 0
         while proc.poll() is None and not self._stop_event.is_set():
+            # Use select with timeout so signal_level resets to 0 when rtl_fm squelch
+            # is active (no output) — prevents the scanner locking on squelched silence
+            ready, _, _ = select.select([proc.stdout], [], [], 0.2)
+            if not ready:
+                self._signal_level = 0.0
+                try:
+                    self._audio_queue.put_nowait(SILENCE_CHUNK)
+                except queue.Full:
+                    pass
+                continue
             try:
                 data = proc.stdout.read(chunk_size)
             except Exception as e:
@@ -251,12 +261,8 @@ class Scanner:
                 break
             if not data:
                 break
-            rms = _rms(data)
-            self._signal_level = rms
+            self._signal_level = _rms(data)
             chunks += 1
-            # Software squelch: suppress static when signal is below threshold
-            if rms < threshold:
-                data = SILENCE_CHUNK
             try:
                 self._audio_queue.put_nowait(data)
             except queue.Full:
